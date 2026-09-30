@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CustomerIQ | Advanced K-Means Customer Segmentation Platform</title>
+    <meta name="description" content="Segment customers into distinct behavioral and demographic groups using K-Means Clustering, PCA reduction, and automated persona generation.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chart.js & Plotly CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Background Glow Elements -->
+    <div class="glow-bg glow-purple"></div>
+    <div class="glow-bg glow-cyan"></div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="navbar">
+            <div class="logo-group">
+                <div class="logo-icon">
+                    <i class="fa-solid fa-chart-pie"></i>
+                </div>
+                <div>
+                    <h1 class="logo-title">Customer<span>IQ</span></h1>
+                    <p class="logo-subtitle">K-Means Customer Segmentation & Persona Intelligence</p>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <div class="status-pill active" id="modelStatusPill">
+                    <span class="status-dot"></span> <span id="statusText">Model Ready</span>
+                </div>
+                <button class="btn btn-outline" id="btnExportData">
+                    <i class="fa-solid fa-download"></i> Export Segmented Data
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <main class="main-grid">
+            <!-- Sidebar / Control Panel -->
+            <aside class="sidebar card glass-card">
+                <div class="card-header">
+                    <i class="fa-solid fa-sliders"></i>
+                    <h2>Model Configuration</h2>
+                </div>
+
+                <!-- Dataset Selector -->
+                <div class="control-group">
+                    <label class="input-label"><i class="fa-solid fa-database"></i> Select Dataset</label>
+                    <select id="datasetSelect" class="form-control">
+                        <option value="data/mall_customers.csv">Mall Customers Benchmark (200 rows)</option>
+                        <option value="data/ecommerce_rfm_demographics.csv">E-Commerce RFM + Demographics (450 rows)</option>
+                    </select>
+                </div>
+
+                <!-- Scaling Method -->
+                <div class="control-group">
+                    <label class="input-label"><i class="fa-solid fa-arrows-left-right-to-line"></i> Feature Scaling Method</label>
+                    <div class="radio-toggle">
+                        <label class="radio-btn active" id="lblStandard">
+                            <input type="radio" name="scaling" value="standard" checked> StandardScaler (Z-Score)
+                        </label>
+                        <label class="radio-btn" id="lblMinMax">
+                            <input type="radio" name="scaling" value="minmax"> MinMaxScaler (0 to 1)
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Feature Selector -->
+                <div class="control-group">
+                    <label class="input-label"><i class="fa-solid fa-list-check"></i> Clustering Features</label>
+                    <div class="checkbox-list" id="featureCheckboxes">
+                        <!-- Populated dynamically via JS -->
+                    </div>
+                </div>
+
+                <!-- K-Value Slider -->
+                <div class="control-group">
+                    <div class="slider-header">
+                        <label class="input-label"><i class="fa-solid fa-diagram-project"></i> Number of Clusters (K)</label>
+                        <span class="badge badge-purple" id="kValBadge">5</span>
+                    </div>
+                    <input type="range" id="kSlider" min="2" max="10" value="5" step="1" class="form-range">
+                    <div class="slider-ticks">
+                        <span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span>
+                    </div>
+                </div>
+
+                <!-- Buttons -->
+                <div class="button-stack">
+                    <button class="btn btn-primary glow-btn" id="btnRunClustering">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Run K-Means Clustering
+                    </button>
+                    <button class="btn btn-secondary" id="btnRunOptimalK">
+                        <i class="fa-solid fa-chart-line"></i> Evaluate Optimal K (Elbow & Silhouette)
+                    </button>
+                </div>
+
+                <!-- Dataset Info Card -->
+                <div class="info-box mt-4" id="datasetInfoBox">
+                    <div class="info-row"><span>Total Records:</span> <strong id="infoRows">200</strong></div>
+                    <div class="info-row"><span>Selected Features:</span> <strong id="infoFeatCount">3</strong></div>
+                </div>
+            </aside>
+
+            <!-- Dashboard Content Area -->
+            <section class="dashboard-content">
+
+                <!-- Metric Overview Cards -->
+                <div class="metrics-grid">
+                    <div class="metric-card glass-card">
+                        <div class="metric-icon purple"><i class="fa-solid fa-cubes"></i></div>
+                        <div>
+                            <div class="metric-label">Active Clusters (K)</div>
+                            <div class="metric-value" id="metricK">5</div>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-card">
+                        <div class="metric-icon cyan"><i class="fa-solid fa-bullseye"></i></div>
+                        <div>
+                            <div class="metric-label">Silhouette Score</div>
+                            <div class="metric-value" id="metricSilhouette">0.554</div>
+                            <div class="metric-sub text-success" id="metricSilStatus">Good Separation</div>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-card">
+                        <div class="metric-icon emerald"><i class="fa-solid fa-chart-area"></i></div>
+                        <div>
+                            <div class="metric-label">WCSS (Inertia)</div>
+                            <div class="metric-value" id="metricInertia">161.6</div>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-card">
+                        <div class="metric-icon pink"><i class="fa-solid fa-users"></i></div>
+                        <div>
+                            <div class="metric-label">Total Customers</div>
+                            <div class="metric-value" id="metricTotalCustomers">200</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabs Navigation -->
+                <nav class="tabs-nav card glass-card">
+                    <button class="tab-btn active" data-tab="tabClusterViz">
+                        <i class="fa-solid fa-circle-nodes"></i> Cluster Visualizer (2D / 3D PCA)
+                    </button>
+                    <button class="tab-btn" data-tab="tabElbowSilhouette">
+                        <i class="fa-solid fa-chart-line"></i> Optimal K Evaluation
+                    </button>
+                    <button class="tab-btn" data-tab="tabPersonas">
+                        <i class="fa-solid fa-id-card"></i> Segment Personas & Strategy
+                    </button>
+                    <button class="tab-btn" data-tab="tabPredictor">
+                        <i class="fa-solid fa-user-plus"></i> Real-time Classifier
+                    </button>
+                    <button class="tab-btn" data-tab="tabDataTable">
+                        <i class="fa-solid fa-table"></i> Customer Dataset
+                    </button>
+                </nav>
+
+                <!-- TAB 1: Cluster Visualizer -->
+                <div class="tab-pane active" id="tabClusterViz">
+                    <div class="card glass-card">
+                        <div class="card-header justify-between">
+                            <div class="title-with-icon">
+                                <i class="fa-solid fa-chart-scatter"></i>
+                                <h3>PCA Cluster Scatter Plot</h3>
+                            </div>
+                            <div class="viz-toggle-group">
+                                <button class="btn-toggle active" id="btnViz2D"><i class="fa-solid fa-border-all"></i> 2D Scatter</button>
+                                <button class="btn-toggle" id="btnViz3D"><i class="fa-solid fa-cube"></i> 3D PCA Plot</button>
+                            </div>
+                        </div>
+                        <div class="chart-container" id="plotlyClusterContainer">
+                            <!-- Plotly 2D/3D Plot injected here -->
+                        </div>
+                        <div class="chart-footer">
+                            <span id="pcaVarText"><i class="fa-solid fa-info-circle"></i> PCA Dim 1 & 2 explain 83.4% of feature variance. Larger markers represent cluster centroids.</span>
+                        </div>
+                    </div>
+
+                    <!-- Feature Mean Comparison Bar Chart -->
+                    <div class="card glass-card mt-4">
+                        <div class="card-header">
+                            <i class="fa-solid fa-chart-column"></i>
+                            <h3>Cluster Feature Means vs Overall Population</h3>
+                        </div>
+                        <div class="chart-container-sm">
+                            <canvas id="chartFeatureMeans"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: Optimal K Evaluation -->
+                <div class="tab-pane" id="tabElbowSilhouette">
+                    <div class="grid-2col">
+                        <div class="card glass-card">
+                            <div class="card-header">
+                                <i class="fa-solid fa-chart-line text-purple"></i>
+                                <h3>Elbow Method (WCSS vs K)</h3>
+                            </div>
+                            <div class="chart-container-sm">
+                                <canvas id="chartElbow"></canvas>
+                            </div>
+                            <p class="text-sub mt-2">Look for the "elbow" point where WCSS reduction slows down noticeably.</p>
+                        </div>
+
+                        <div class="card glass-card">
+                            <div class="card-header">
+                                <i class="fa-solid fa-wave-square text-cyan"></i>
+                                <h3>Silhouette Score vs K</h3>
+                            </div>
+                            <div class="chart-container-sm">
+                                <canvas id="chartSilhouette"></canvas>
+                            </div>
+                            <p class="text-sub mt-2">Higher silhouette score indicates better cluster separation and cohesion.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: Segment Personas & Strategy -->
+                <div class="tab-pane" id="tabPersonas">
+                    <div class="personas-container" id="personasGrid">
+                        <!-- Dynamic Persona Cards rendered by JS -->
+                    </div>
+                </div>
+
+                <!-- TAB 4: Real-time Customer Classifier -->
+                <div class="tab-pane" id="tabPredictor">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <i class="fa-solid fa-user-gear text-emerald"></i>
+                            <h3>Interactive Customer Persona Classifier</h3>
+                        </div>
+                        <p class="text-sub mb-4">Input a customer's demographic and spending metrics to classify them instantly into a cluster segment and receive targeted marketing tactics.</p>
+
+                        <div class="predictor-layout">
+                            <form id="predictorForm" class="predictor-inputs">
+                                <div id="predictorDynamicFields">
+                                    <!-- Dynamic Inputs based on selected dataset features -->
+                                </div>
+                                <button type="submit" class="btn btn-primary glow-btn full-width mt-3">
+                                    <i class="fa-solid fa-magnifying-glass-chart"></i> Predict Customer Segment
+                                </button>
+                            </form>
+
+                            <div class="predictor-result-card" id="predictorResult">
+                                <div class="empty-state">
+                                    <i class="fa-solid fa-user-check"></i>
+                                    <h4>No Prediction Generated Yet</h4>
+                                    <p>Fill out customer metrics on the left and click predict.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 5: Data Table -->
+                <div class="tab-pane" id="tabDataTable">
+                    <div class="card glass-card">
+                        <div class="card-header justify-between">
+                            <div class="title-with-icon">
+                                <i class="fa-solid fa-table-list"></i>
+                                <h3>Segmented Customer Records</h3>
+                            </div>
+                            <input type="text" id="tableSearchInput" placeholder="🔍 Search customers..." class="search-input">
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="customerTable">
+                                <thead id="tableHeader"></thead>
+                                <tbody id="tableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+        </main>
+    </div>
+
+    <!-- App JS -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
